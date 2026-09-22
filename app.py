@@ -1,8 +1,10 @@
 import streamlit as st
 from google import genai
+from google.genai import errors
+
 
 # -------------------------
-# App settings
+# APP SETTINGS
 # -------------------------
 
 st.set_page_config(
@@ -13,51 +15,67 @@ st.set_page_config(
 st.title("🤖 My AI")
 st.caption("My free online AI assistant")
 
-# Gemini se connection
+
+# -------------------------
+# GEMINI CONNECTION
+# -------------------------
+
 client = genai.Client(
     api_key=st.secrets["GEMINI_API_KEY"]
 )
 
+
 # -------------------------
-# Chat history
+# CHAT HISTORY
 # -------------------------
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+
 # -------------------------
-# Sidebar
+# SIDEBAR
 # -------------------------
 
 with st.sidebar:
 
-    st.title("My AI")
+    st.title("🤖 My AI")
 
     if st.button("➕ New Chat", use_container_width=True):
+
         st.session_state.messages = []
+
         st.rerun()
 
-    st.write("Model: Gemini 3.8 Flash")
-    st.write("Online AI")
+    st.write("Free Online AI")
+    st.write("Powered by Gemini")
+
 
 # -------------------------
-# Purane messages dikhana
+# OLD MESSAGES DIKHAO
 # -------------------------
 
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
+
         st.markdown(message["content"])
 
+
 # -------------------------
-# ChatGPT jaisa input box
+# MESSAGE BOX
 # -------------------------
 
 prompt = st.chat_input("Message My AI...")
 
+
+# -------------------------
+# USER SENDS MESSAGE
+# -------------------------
+
 if prompt:
 
-    # User message save
+    # User message history me save
     st.session_state.messages.append(
         {
             "role": "user",
@@ -65,40 +83,107 @@ if prompt:
         }
     )
 
-    # User message screen par
+    # User message screen par dikhao
     with st.chat_message("user"):
+
         st.markdown(prompt)
 
-    # AI response
+
+    # -------------------------
+    # AI RESPONSE
+    # -------------------------
+
     with st.chat_message("assistant"):
 
         with st.spinner("Thinking..."):
 
-            # Current conversation ko text me convert karo
+            # Purani conversation Gemini ko bhejne ke liye
             conversation = ""
 
             for message in st.session_state.messages:
 
                 if message["role"] == "user":
-                    conversation += "User: " + message["content"] + "\n"
+
+                    conversation += (
+                        "User: "
+                        + message["content"]
+                        + "\n"
+                    )
 
                 else:
-                    conversation += "Assistant: " + message["content"] + "\n"
+
+                    conversation += (
+                        "Assistant: "
+                        + message["content"]
+                        + "\n"
+                    )
 
             conversation += "Assistant:"
 
-            # Gemini ko conversation bhejo
-            interaction = client.interactions.create(
-                model="gemini-3.8-flash",
-                input=conversation
-            )
 
-            # Gemini ka answer
-            answer = interaction.output_text
+            # -------------------------
+            # GEMINI API CALL
+            # -------------------------
 
-            st.markdown(answer)
+            try:
 
-    # AI answer history me save
+                interaction = client.interactions.create(
+                    model="gemini-3.8-flash",
+                    input=conversation
+                )
+
+                answer = interaction.output_text
+
+                st.markdown(answer)
+
+
+            # -------------------------
+            # GEMINI ERRORS
+            # -------------------------
+
+            except errors.APIError as e:
+
+                if e.code == 429:
+
+                    answer = (
+                        "⚠️ Free AI limit abhi reach ho gayi hai.\n\n"
+                        "Thodi der baad dobara try karo."
+                    )
+
+                elif e.code == 401 or e.code == 403:
+
+                    answer = (
+                        "⚠️ AI service authentication problem aa rahi hai."
+                    )
+
+                else:
+
+                    answer = (
+                        "⚠️ AI service me temporary problem aa gayi hai.\n\n"
+                        "Please thodi der baad try karo."
+                    )
+
+                st.warning(answer)
+
+
+            # -------------------------
+            # OTHER ERRORS
+            # -------------------------
+
+            except Exception:
+
+                answer = (
+                    "⚠️ Kuch unexpected error aa gaya.\n\n"
+                    "Please thodi der baad try karo."
+                )
+
+                st.warning(answer)
+
+
+    # -------------------------
+    # AI ANSWER HISTORY ME SAVE
+    # -------------------------
+
     st.session_state.messages.append(
         {
             "role": "assistant",
